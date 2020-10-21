@@ -1,16 +1,14 @@
 use decimal::d128;
 use std::time::Instant;
 
-// test problem: y' = 2y
-// (x is included in parameters so that i don't have to refactor the code for, say,
-// a problem like y' = 2xy)
+// test problem: y' = 2xy
 fn yprime(x: d128, y: d128) -> d128 {
-    d128::from(2) * y
+    d128!(2) * x * y 
 }
 
-// exact solution: y = y0*e^(2x)
+// exact solution: y = y0 * e^(x^2)
 fn yexact(x: d128, y0: d128) -> d128 {
-    y0 * (d128::from(2) * x).exp()
+    y0 * (x*x).exp()
 }
 
 // we love our RK4, don't we folks
@@ -19,19 +17,16 @@ fn runge_kutta(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
     approx.push((x0, y0));
     for _ in 1..=n {
         // k1 = y'(xi, yi)
-        let k1 = yprime(
-            approx.last().unwrap().0,
-            approx.last().unwrap().1,
-        );
+        let k1 = yprime(approx.last().unwrap().0, approx.last().unwrap().1);
         // k2 = y'(xi + h/2, yi + (hk1)/2)
         let k2 = yprime(
-            approx.last().unwrap().0 + h / d128::from(2),
-            approx.last().unwrap().1 + (h * k1) / d128::from(2),
+            approx.last().unwrap().0 + h / d128!(2),
+            approx.last().unwrap().1 + (h * k1) / d128!(2),
         );
         // k3 = y'(xi + h/2, yi + (hk1)/2)
         let k3 = yprime(
-            approx.last().unwrap().0 + h / d128::from(2),
-            approx.last().unwrap().1 + (h * k2) / d128::from(2),
+            approx.last().unwrap().0 + h / d128!(2),
+            approx.last().unwrap().1 + (h * k2) / d128!(2),
         );
         // k4 = y'(xi + h, yi + hk3)
         let k4 = yprime(
@@ -41,7 +36,8 @@ fn runge_kutta(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
         // y(i+1) = yi + (h/6)(k1 + 2*k2 + 2*k3 + k4)
         approx.push((
             approx.last().unwrap().0 + h,
-            approx.last().unwrap().1 + h * (k1 + d128::from(2) * k2 + d128::from(2) * k3 + k4) / d128::from(6),
+            approx.last().unwrap().1
+                + h * (k1 + d128!(2) * k2 + d128!(2) * k3 + k4) / d128!(6),
         ));
     }
     approx
@@ -59,10 +55,10 @@ fn yexact_vec(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
 
 fn main() {
     // using y(0) = 1 for our initial condition
-    let x0 = d128::from(0);
-    let y0 = d128::from(1);
+    let x0 = d128!(0);
+    let y0 = d128!(1);
     // h = 0.01
-    let h = d128::from(1) / d128::from(100);
+    let h = d128!(1) / d128!(100);
     let n = 200;
 
     let now = Instant::now();
@@ -74,12 +70,11 @@ fn main() {
 
     for i in 0..=n {
         println!(
-            "err at {}: {} --- exact: {}",
+            "err at {}: {}",
             approx.get(i).unwrap().0,
-            (approx.get(i).unwrap().1 - exact.get(i).unwrap().1),
-            exact.get(i).unwrap().1
+            approx.get(i).unwrap().1 - exact.get(i).unwrap().1
         );
     }
 
-    println!("Time elapsed: {} ns", elapsed.as_nanos());
+    println!("Time elapsed: {} ms", elapsed.as_millis());
 }

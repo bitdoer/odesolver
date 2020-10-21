@@ -1,88 +1,85 @@
-use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
-
-type BD = BigDecimal;
+use decimal::d128;
+use std::time::Instant;
 
 // test problem: y' = 2y
 // (x is included in parameters so that i don't have to refactor the code for, say,
 // a problem like y' = 2xy)
-fn yprime(x: BD, y: BD) -> BD {
-    BD::from(2) * y
+fn yprime(x: d128, y: d128) -> d128 {
+    d128::from(2) * y
 }
 
 // exact solution: y = y0*e^(2x)
-fn yexact(x: BD, y0: BD) -> BD {
-    y0 * (BD::from(2) * x).exp()
+fn yexact(x: d128, y0: d128) -> d128 {
+    y0 * (d128::from(2) * x).exp()
 }
 
 // we love our RK4, don't we folks
-fn runge_kutta(x0: BD, y0: BD, h: BD, n: usize) -> Vec<(BD, BD)> {
-    let mut approx: Vec<(BD, BD)> = Vec::new();
-    // BigDecimal doesn't implement Copy for obvious reasons, so we have a lot of cloning to do;
-    // this program has dogshit optimization for that reason
-    approx.push((x0.clone(), y0.clone()));
+fn runge_kutta(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
+    let mut approx: Vec<(d128, d128)> = Vec::new();
+    approx.push((x0, y0));
     for _ in 1..=n {
         // k1 = y'(xi, yi)
         let k1 = yprime(
-            approx.clone().last().unwrap().0.clone(),
-            approx.clone().last().unwrap().1.clone(),
+            approx.last().unwrap().0,
+            approx.last().unwrap().1,
         );
         // k2 = y'(xi + h/2, yi + (hk1)/2)
         let k2 = yprime(
-            approx.clone().last().unwrap().0.clone() + h.clone() / BD::from(2),
-            approx.clone().last().unwrap().1.clone() + h.clone() * k1.clone() / BD::from(2),
+            approx.last().unwrap().0 + h / d128::from(2),
+            approx.last().unwrap().1 + (h * k1) / d128::from(2),
         );
         // k3 = y'(xi + h/2, yi + (hk1)/2)
         let k3 = yprime(
-            approx.clone().last().unwrap().0.clone() + h.clone() / BD::from(2),
-            approx.clone().last().unwrap().1.clone() + h.clone() * k2.clone() / BD::from(2),
+            approx.last().unwrap().0 + h / d128::from(2),
+            approx.last().unwrap().1 + (h * k2) / d128::from(2),
         );
         // k4 = y'(xi + h, yi + hk3)
         let k4 = yprime(
-            approx.clone().last().unwrap().0.clone() + h.clone(),
-            approx.clone().last().unwrap().1.clone() + h.clone() * k3.clone(),
+            approx.last().unwrap().0 + h,
+            approx.last().unwrap().1 + (h * k3),
         );
         // y(i+1) = yi + (h/6)(k1 + 2*k2 + 2*k3 + k4)
         approx.push((
-            approx.clone().last().unwrap().0.clone() + h.clone(),
-            approx.clone().last().unwrap().1.clone()
-                + h.clone()
-                    * (k1.clone()
-                        + BD::from(2) * k2.clone()
-                        + BD::from(2) * k3.clone()
-                        + k4.clone())
-                    / BD::from(6),
+            approx.last().unwrap().0 + h,
+            approx.last().unwrap().1 + h * (k1 + d128::from(2) * k2 + d128::from(2) * k3 + k4) / d128::from(6),
         ));
     }
     approx
 }
 
-fn yexact_vec(x0: BD, y0: BD, h: BD, n: usize) -> Vec<(BD, BD)> {
-    let mut exact: Vec<(BD, BD)> = Vec::new();
-    exact.push((x0.clone(), y0.clone()));
+fn yexact_vec(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
+    let mut exact: Vec<(d128, d128)> = Vec::new();
+    exact.push((x0, y0));
     for _ in 1..=n {
-        let x = exact.clone().last().unwrap().0.clone() + h.clone();
-        exact.push((x.clone(), yexact(x.clone(), y0.clone())));
+        let x = exact.last().unwrap().0 + h;
+        exact.push((x, yexact(x, y0)));
     }
     exact
 }
 
 fn main() {
     // using y(0) = 1 for our initial condition
-    let x0 = BD::from(0);
-    let y0 = BD::from(1);
-    // h = 0.05
-    let h = BD::new(BigInt::from(5), 2);
-    let n = 40;
-    let approx = runge_kutta(x0.clone(), y0.clone(), h.clone(), n);
-    let exact = yexact_vec(x0.clone(), y0.clone(), h.clone(), n);
+    let x0 = d128::from(0);
+    let y0 = d128::from(1);
+    // h = 0.01
+    let h = d128::from(1) / d128::from(100);
+    let n = 200;
+
+    let now = Instant::now();
+
+    let approx = runge_kutta(x0, y0, h, n);
+    let exact = yexact_vec(x0, y0, h, n);
+
+    let elapsed = now.elapsed();
 
     for i in 0..=n {
         println!(
-            "err at {}: {}",
-            approx.clone().get(i).unwrap().0.clone().with_prec(3),
-            (approx.clone().get(i).unwrap().1.clone() - exact.clone().get(i).unwrap().1.clone())
-                .with_prec(10)
+            "err at {}: {} --- exact: {}",
+            approx.get(i).unwrap().0,
+            (approx.get(i).unwrap().1 - exact.get(i).unwrap().1),
+            exact.get(i).unwrap().1
         );
     }
+
+    println!("Time elapsed: {} ns", elapsed.as_nanos());
 }

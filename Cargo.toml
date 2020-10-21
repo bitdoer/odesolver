@@ -5,5 +5,4 @@ authors = ["bit doer <bitdoer@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-num-bigint = "0.3.0"
-bigdecimal = "0.2.0"
+decimal = { git = "https://github.com/bitdoer/decimal" }

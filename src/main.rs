@@ -44,6 +44,7 @@ fn runge_kutta(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
 
 // adams-bashforth 4-step method
 fn adams(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
+    // adams method is multistep; needs to be initialized by another method, like rk4
     let mut approx: Vec<(d128, d128)> = runge_kutta(x0, y0, h, 3);
     for _ in 4..=n {
         // y(i+1) = yi + (h/24)(55y'(xi,yi) - 59y'(x(i-1), y(i-1)) + 37y'(x(i-2), y(i-2)) - 9y'(x(i-3), y(i-3)))

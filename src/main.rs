@@ -3,12 +3,12 @@ use std::time::Instant;
 
 // test problem: y' = 2xy
 fn yprime(x: d128, y: d128) -> d128 {
-    d128!(2) * x * y 
+    d128!(2) * x * y
 }
 
 // exact solution: y = y0 * e^(x^2)
 fn yexact(x: d128, y0: d128) -> d128 {
-    y0 * (x*x).exp()
+    y0 * (x * x).exp()
 }
 
 // we love our RK4, don't we folks
@@ -36,8 +36,40 @@ fn runge_kutta(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
         // y(i+1) = yi + (h/6)(k1 + 2*k2 + 2*k3 + k4)
         approx.push((
             approx.last().unwrap().0 + h,
+            approx.last().unwrap().1 + h * (k1 + d128!(2) * k2 + d128!(2) * k3 + k4) / d128!(6),
+        ));
+    }
+    approx
+}
+
+// adams-bashforth 4-step method
+fn adams(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
+    let mut approx: Vec<(d128, d128)> = runge_kutta(x0, y0, h, 3);
+    for _ in 4..=n {
+        approx.push((
+            approx.last().unwrap().0 + h,
             approx.last().unwrap().1
-                + h * (k1 + d128!(2) * k2 + d128!(2) * k3 + k4) / d128!(6),
+                + h * (d128!(55)
+                    * yprime(
+                        approx.get(approx.len() - 1).unwrap().0,
+                        approx.get(approx.len() - 1).unwrap().1,
+                    )
+                    - d128!(59)
+                        * yprime(
+                            approx.get(approx.len() - 2).unwrap().0,
+                            approx.get(approx.len() - 2).unwrap().1,
+                        )
+                    + d128!(37)
+                        * yprime(
+                            approx.get(approx.len() - 3).unwrap().0,
+                            approx.get(approx.len() - 3).unwrap().1,
+                        )
+                    - d128!(9)
+                        * yprime(
+                            approx.get(approx.len() - 4).unwrap().0,
+                            approx.get(approx.len() - 4).unwrap().1,
+                        ))
+                    / d128!(24),
         ));
     }
     approx
@@ -54,27 +86,34 @@ fn yexact_vec(x0: d128, y0: d128, h: d128, n: usize) -> Vec<(d128, d128)> {
 }
 
 fn main() {
-    // using y(0) = 1 for our initial condition
+    // using y(0) = 6 for our initial condition
     let x0 = d128!(0);
-    let y0 = d128!(1);
+    let y0 = d128!(6);
     // h = 0.01
-    let h = d128!(1) / d128!(100);
-    let n = 200;
+    let h = d128!(1) / d128!(1000);
+    let n = 2000;
 
     let now = Instant::now();
-
-    let approx = runge_kutta(x0, y0, h, n);
-    let exact = yexact_vec(x0, y0, h, n);
-
+    let runge = runge_kutta(x0, y0, h, n);
     let elapsed = now.elapsed();
 
-    for i in 0..=n {
-        println!(
-            "err at {}: {}",
-            approx.get(i).unwrap().0,
-            approx.get(i).unwrap().1 - exact.get(i).unwrap().1
-        );
-    }
+    let now_a = Instant::now();
+    let adams = adams(x0, y0, h, n);
+    let elapsed_a = now_a.elapsed();
 
+    let exact = yexact_vec(x0, y0, h, n);
+
+    println!(
+        "RK err at {}: {}",
+        runge.last().unwrap().0,
+        runge.last().unwrap().1 - exact.last().unwrap().1
+    );
     println!("Time elapsed: {} ms", elapsed.as_millis());
+
+    println!(
+        "Adams err at {}: {}",
+        adams.last().unwrap().0,
+        adams.last().unwrap().1 - exact.last().unwrap().1
+    );
+    println!("Time elapsed: {} ms", elapsed_a.as_millis());
 }

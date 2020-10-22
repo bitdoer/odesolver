@@ -102,8 +102,11 @@ fn main() {
     let adams = adams(x0, y0, h, n);
     let elapsed_a = now_a.elapsed();
 
+    let now_e = Instant::now();
     let exact = yexact_vec(x0, y0, h, n);
+    let elapsed_e = now_e.elapsed();
 
+    println!("Exact solution time elapsed: {} ms", elapsed_e.as_millis());
     println!(
         "RK err at {}: {}",
         runge.last().unwrap().0,
